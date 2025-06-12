@@ -96,9 +96,9 @@ def klasifikasi(row):
         return "Kurang Patuh"
     gap = row["BULAN AKTIF"] - row["BULAN PEMBAYARAN"]
     if gap > 3:
-        return "Kurang Patuh"
+        return "Tidak Patuh"
     elif gap > 1:
-        return "Cukup Patuh"
+        return "Kurang Patuh"
     else:
         return "Patuh"
 
