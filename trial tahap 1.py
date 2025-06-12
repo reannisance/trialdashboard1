@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -64,13 +65,13 @@ def process_data(df_input, tahun_pajak):
     return df, payment_cols
 
 # ---------- KONFIGURASI HALAMAN ----------
-st.set_page_config(page_title="\ud83c\udfa8 Dashboard Kepatuhan Pajak Daerah", layout="wide")
-st.title("\ud83c\udfaf Dashboard Kepatuhan Pajak Daerah")
-jenis_pajak = st.selectbox("\ud83d\udcdf Pilih Jenis Pajak", ["JASA KESENIAN DAN HIBURAN", "MAKAN MINUM"])
-st.markdown("Upload file Excel, pilih sheet, filter, dan lihat visualisasi \u2728")
+st.set_page_config(page_title="🎨 Dashboard Kepatuhan Pajak Daerah", layout="wide")
+st.title("🎯 Dashboard Kepatuhan Pajak Daerah")
+jenis_pajak = st.selectbox("📃 Pilih Jenis Pajak", ["JASA KESENIAN DAN HIBURAN", "MAKAN MINUM"])
+st.markdown("Upload file Excel, pilih sheet, filter, dan lihat visualisasi ✨")
 
 # ---------- PANDUAN ----------
-with st.expander("\ud83d\udcd8 Panduan Format Excel yang dapat digunakan (Klik untuk lihat)"):
+with st.expander("📘 Panduan Format Excel yang dapat digunakan (Klik untuk lihat)"):
     st.markdown("""
     ✅ **Kolom Wajib:**
     - `NPWPD`, `NAMA WP`, `ALAMAT`, `TMT`, `KATEGORI`, `STATUS`, `UPPPD`
@@ -85,36 +86,36 @@ with st.expander("\ud83d\udcd8 Panduan Format Excel yang dapat digunakan (Klik u
 st.markdown("""
     <a href="https://raw.githubusercontent.com/reannisance/trialdashboard1/main/CONTOH_FORMAT_SETORAN%20MASA.xlsx" download>
         <button style='padding: 0.5em 1em; font-size: 16px; color: red; border: 1px solid red; border-radius: 6px; background: transparent;'>
-            \ud83d\udccc Download Contoh Format Excel
+            📌 Download Contoh Format Excel
         </button>
     </a>
     """, unsafe_allow_html=True)
 
 # ---------- INPUT ----------
-st.markdown("### \ud83d\udcc4 Silakan upload file Excel berisi data setoran masa pajak.")
-tahun_pajak = st.number_input("\ud83d\uddd3 Pilih Tahun Pajak", min_value=2000, max_value=2100, value=2024)
+st.markdown("### 📄 Silakan upload file Excel berisi data setoran masa pajak.")
+tahun_pajak = st.number_input("📅 Pilih Tahun Pajak", min_value=2000, max_value=2100, value=2024)
 uploaded_file = st.file_uploader("Upload File Excel", type=["xlsx"], label_visibility="collapsed")
 
 if uploaded_file is None:
-    st.warning("\u26a0\ufe0f Silakan upload file terlebih dahulu.")
+    st.warning("⚠️ Silakan upload file terlebih dahulu.")
     st.stop()
 
 # ---------- BACA DATA ----------
 try:
     df_input = pd.read_excel(uploaded_file)
 except Exception as e:
-    st.error(f"\u274c Gagal membaca file Excel. Pastikan format file sesuai.\n\nError: {e}")
+    st.error(f"❌ Gagal membaca file Excel. Pastikan format file sesuai.\n\nError: {e}")
     st.stop()
 
 # ---------- PROSES DATA MENGGUNAKAN SAFE++ ----------
 try:
     df_input, payment_cols = process_data(df_input, tahun_pajak)
 except Exception as e:
-    st.error(f"\u274c Gagal memproses data: {e}")
+    st.error(f"❌ Gagal memproses data: {e}")
     st.stop()
 
 # ---------- TAMPILKAN TABEL ----------
-st.success("\u2705 Data berhasil diproses dan difilter!")
+st.success("✅ Data berhasil diproses dan difilter!")
 st.dataframe(df_input.style.format({
     "Total Pembayaran": "{:,.2f}",
     "Kepatuhan (%)": "{:.2f}"
@@ -128,10 +129,10 @@ def to_excel(df):
     buffer.seek(0)
     return buffer
 
-st.download_button("\ud83d\uddd3 Download Hasil Excel", data=to_excel(df_input).getvalue(), file_name="hasil_dashboard_kepatuhan.xlsx")
+st.download_button("📅 Download Hasil Excel", data=to_excel(df_input).getvalue(), file_name="hasil_dashboard_kepatuhan.xlsx")
 
 # ---------- VISUALISASI ----------
-st.markdown("### \ud83d\udcc8 Tren Pembayaran Pajak per Bulan")
+st.markdown("### 📈 Tren Pembayaran Pajak per Bulan")
 bulanan = df_input[payment_cols].apply(pd.to_numeric, errors='coerce').sum().reset_index()
 bulanan.columns = ["Bulan", "Total Pembayaran"]
 bulanan["Bulan"] = pd.to_datetime(bulanan["Bulan"], errors="coerce")
@@ -139,20 +140,20 @@ bulanan = bulanan.sort_values("Bulan")
 fig_line = px.line(bulanan, x="Bulan", y="Total Pembayaran", markers=True)
 st.plotly_chart(fig_line, use_container_width=True)
 
-st.markdown("### \ud83d\udcca Jumlah WP per Kategori Tingkat Kepatuhan")
+st.markdown("### 📊 Jumlah WP per Kategori Tingkat Kepatuhan")
 df_input["Kategori"] = pd.cut(df_input["Kepatuhan (%)"].astype(float), bins=[-1, 50, 99.9, 100], labels=["Tidak Patuh", "Kurang Patuh", "Patuh"])
 pie_df = df_input["Kategori"].value_counts().reset_index()
 pie_df.columns = ["Kategori", "Jumlah"]
 fig_bar = px.bar(pie_df, x="Kategori", y="Jumlah", color="Kategori", color_discrete_sequence=px.colors.qualitative.Pastel)
 st.plotly_chart(fig_bar, use_container_width=True)
 
-st.markdown("### \ud83c\udfc5 Top 20 Pembayar Tertinggi")
+st.markdown("### 🏅 Top 20 Pembayar Tertinggi")
 df_input["Total Pembayaran Numeric"] = df_input["Total Pembayaran"].replace({',': ''}, regex=True).astype(float)
 top_df = df_input.sort_values("Total Pembayaran Numeric", ascending=False).head(20)
 st.dataframe(top_df[["NAMA WP", "STATUS", "Total Pembayaran", "Kepatuhan (%)"]], use_container_width=True)
 
-st.markdown("### \ud83d\udccc Ringkasan Statistik")
+st.markdown("### 📌 Ringkasan Statistik")
 col1, col2, col3 = st.columns(3)
-col1.metric("\ud83d\udccc Total WP", df_input.shape[0])
-col2.metric("\ud83d\udcb8 Total Pembayaran", f"Rp {top_df['Total Pembayaran Numeric'].sum():,.0f}")
-col3.metric("\ud83d\udcc8 Rata-rata Pembayaran", f"Rp {top_df['Total Pembayaran Numeric'].mean():,.0f}")
+col1.metric("📌 Total WP", df_input.shape[0])
+col2.metric("💸 Total Pembayaran", f"Rp {top_df['Total Pembayaran Numeric'].sum():,.0f}")
+col3.metric("📈 Rata-rata Pembayaran", f"Rp {top_df['Total Pembayaran Numeric'].mean():,.0f}")
