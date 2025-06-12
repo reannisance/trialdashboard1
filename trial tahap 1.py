@@ -23,9 +23,6 @@ with st.expander("📘 Panduan Format Excel yang dapat digunakan(Klik untuk liha
 
     📁 Gunakan contoh file bernama **CONTOH_FORMAT_SETORAN MASA.xlsx**
     """)
-    
-    
-from st_pages import Page, Section, show_pages
 
 st.markdown(
     """
