@@ -122,8 +122,58 @@ def to_excel(df):
 
 st.download_button("📥 Download Hasil Excel", to_excel(df_input), "dashboard_output.xlsx")
 
-# ---------- GRAFIK TOP 20 ----------
-st.markdown("### 📊 Top 20 Pembayar Tertinggi")
-top20 = df_input.sort_values(by="TOTAL PEMBAYARAN", ascending=False).head(20)
-fig = px.bar(top20, x="NAMA OP", y="TOTAL PEMBAYARAN", text="TOTAL PEMBAYARAN", color="KLASIFIKASI KEPATUHAN")
-st.plotly_chart(fig, use_container_width=True)
+       # Download Excel
+        with io.BytesIO() as buffer:
+            with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+                df_output.to_excel(writer, sheet_name="Hasil", index=False)
+            st.download_button("📥 Download Hasil Excel", data=buffer.getvalue(),
+                               file_name="hasil_dashboard_kepatuhan.xlsx")
+
+        # Charts
+        st.markdown("### 📈 Tren Pembayaran Pajak per Bulan")
+        if payment_cols:
+            bulanan = df_output[payment_cols].sum().reset_index()
+            bulanan.columns = ["Bulan", "Total Pembayaran"]
+            bulanan["Bulan"] = pd.to_datetime(bulanan["Bulan"], errors="coerce")
+            bulanan = bulanan.sort_values("Bulan")
+            fig = px.line(bulanan, x="Bulan", y="Total Pembayaran", markers=True)
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("### 🥧 Pie Chart Kepatuhan Wajib Pajak")
+        pie_df = df_output["KLASIFIKASI KEPATUHAN"].value_counts().reset_index()
+        pie_df.columns = ["Kategori", "Jumlah"]
+        fig_pie = px.pie(pie_df, names="Kategori", values="Jumlah",
+                         title="Distribusi Klasifikasi Kepatuhan",
+                         color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig_pie, use_container_width=True)
+
+        st.markdown("### 🏅 Top 20 Pembayar Tertinggi")
+        top_df = df_output.sort_values("TOTAL PEMBAYARAN", ascending=False).head(20)
+        st.dataframe(top_df[["NAMA OP", "STATUS", "TOTAL PEMBAYARAN", "KEPATUHAN (%)", "KLASIFIKASI KEPATUHAN"]])
+
+else:
+    st.info("💡 Silakan upload file Excel berisi data setoran masa pajak.")
+    with open("CONTOH_FORMAT_SETORAN MASA.xlsx", "rb") as f:
+        st.download_button("📎 Download Contoh Format Excel", data=f.read(),
+                           file_name="CONTOH_FORMAT_SETORAN MASA.xlsx")
+
+
+        # Ringkasan Statistik
+        st.markdown("### 📌 Ringkasan Statistik")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("📌 Total WP", df_output.shape[0])
+        col2.metric("💸 Total Pembayaran", f"Rp {df_output['TOTAL PEMBAYARAN'].sum():,.0f}")
+        col3.metric("📈 Rata-rata Pembayaran", f"Rp {df_output['TOTAL PEMBAYARAN'].mean():,.0f}")
+
+        # Bar Chart Jumlah WP per Klasifikasi
+        st.markdown("### 📊 Jumlah WP per Klasifikasi")
+        fig_bar = px.bar(pie_df, x="Kategori", y="Jumlah", color="Kategori",
+                         color_discrete_sequence=px.colors.qualitative.Pastel)
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        # Boxplot Total Pembayaran per Klasifikasi
+        st.markdown("### 📦 Sebaran Total Pembayaran per Klasifikasi")
+        fig_box = px.box(df_output, x="KLASIFIKASI KEPATUHAN", y="TOTAL PEMBAYARAN",
+                         color="KLASIFIKASI KEPATUHAN", points="all",
+                         color_discrete_sequence=px.colors.qualitative.Set2)
+        st.plotly_chart(fig_box, use_container_width=True)
