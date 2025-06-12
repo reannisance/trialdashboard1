@@ -85,6 +85,30 @@ def hitung_bulan_aktif(tmt, tahun):
 
 df_input["BULAN AKTIF"] = df_input["TMT"].apply(lambda x: hitung_bulan_aktif(x, tahun_pajak))
 
-# ---------- TAMPILKAN PREVIEW ----------
-st.success("✅ Data berhasil diproses. Siap untuk dianalisis!")
-st.dataframe(df_input.head())
+# ---------- HITUNG KEPATUHAN ----------
+df_input["BULAN PEMBAYARAN"] = df_input[payment_cols].gt(0).sum(axis=1)
+df_input["TOTAL PEMBAYARAN"] = df_input[payment_cols].sum(axis=1)
+df_input["RATA-RATA PEMBAYARAN"] = df_input["TOTAL PEMBAYARAN"] / df_input["BULAN PEMBAYARAN"].replace(0, np.nan)
+df_input["KEPATUHAN (%)"] = (df_input["BULAN PEMBAYARAN"] / df_input["BULAN AKTIF"].replace(0, np.nan)) * 100
+
+def klasifikasi(row):
+    if row["BULAN AKTIF"] == 0:
+        return "Kurang Patuh"
+    gap = row["BULAN AKTIF"] - row["BULAN PEMBAYARAN"]
+    if gap > 3:
+        return "Kurang Patuh"
+    elif gap > 1:
+        return "Cukup Patuh"
+    else:
+        return "Patuh"
+
+df_input["KLASIFIKASI KEPATUHAN"] = df_input.apply(klasifikasi, axis=1)
+
+# ---------- OUTPUT ----------
+st.success("✅ Data berhasil diproses dan difilter!")
+
+st.dataframe(df_input.style.format({
+    "TOTAL PEMBAYARAN": "{:,.2f}",
+    "RATA-RATA PEMBAYARAN": "{:,.2f}",
+    "KEPATUHAN (%)": "{:.2f}"
+}), use_container_width=True)
