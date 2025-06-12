@@ -6,7 +6,8 @@ from io import BytesIO
 
 st.set_page_config(page_title="🎨 Dashboard Kepatuhan Pajak Daerah", layout="wide")
 st.title("🎯 Dashboard Kepatuhan Pajak Daerah")
-st.markdown("Upload file Excel, pilih sheet, filter, dan lihat visualisasi yang menarik ✨")
+jenis_pajak = st.selectbox("🧾 Pilih Jenis Pajak", ["JASA KESENIAN DAN HIBURAN", "MAKAN MINUM"])
+st.markdown("Upload file Excel, pilih sheet, filter, dan lihat visualisasi ✨")
 
 # ---------- PANDUAN ----------
 with st.expander("📘 Panduan Format Excel yang dapat digunakan (Klik untuk lihat)"):
@@ -91,18 +92,14 @@ df_input["TOTAL PEMBAYARAN"] = df_input[payment_cols].sum(axis=1)
 df_input["RATA-RATA PEMBAYARAN"] = df_input["TOTAL PEMBAYARAN"] / df_input["BULAN PEMBAYARAN"].replace(0, np.nan)
 df_input["KEPATUHAN (%)"] = (df_input["BULAN PEMBAYARAN"] / df_input["BULAN AKTIF"].replace(0, np.nan)) * 100
 
-def klasifikasi(row):
-    if row["BULAN AKTIF"] == 0:
-        return "Kurang Patuh"
-    gap = row["BULAN AKTIF"] - row["BULAN PEMBAYARAN"]
-    if gap > 3:
-        return "Tidak Patuh"
-    elif gap > 1:
-        return "Kurang Patuh"
-    else:
-        return "Patuh"
+conditions = [
+    df_input["KEPATUHAN (%)"] == 100,
+    (df_input["KEPATUHAN (%)"] > 50) & (df_input["KEPATUHAN (%)"] < 100),
+    df_input["KEPATUHAN (%)"] <= 50
+]
+choices = ["Patuh", "Kurang Patuh", "Tidak Patuh"]
 
-df_input["KLASIFIKASI KEPATUHAN"] = df_input.apply(klasifikasi, axis=1)
+df_input["KLASIFIKASI KEPATUHAN"] = np.select(conditions, choices, default="Tidak Patuh")
 
 # ---------- OUTPUT ----------
 st.success("✅ Data berhasil diproses dan difilter!")
@@ -112,3 +109,28 @@ st.dataframe(df_input.style.format({
     "RATA-RATA PEMBAYARAN": "{:,.2f}",
     "KEPATUHAN (%)": "{:.2f}"
 }), use_container_width=True)
+
+
+# ---------- OUTPUT ----------
+st.success("✅ Data berhasil diproses dan difilter!")
+
+st.dataframe(df_input.style.format({
+    "TOTAL PEMBAYARAN": "{:,.2f}",
+    "RATA-RATA PEMBAYARAN": "{:,.2f}",
+    "KEPATUHAN (%)": "{:.2f}"
+}), use_container_width=True)
+
+# ---------- DOWNLOAD ----------
+def to_excel(df):
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Output")
+    return buffer
+
+st.download_button("📥 Download Hasil Excel", to_excel(df_input), "dashboard_output.xlsx")
+
+# ---------- GRAFIK ----------
+st.markdown("### 📊 Top 20 Pembayar Tertinggi")
+top20 = df_input.sort_values(by="TOTAL PEMBAYARAN", ascending=False).head(20)
+fig = px.bar(top20, x="NAMA OP", y="TOTAL PEMBAYARAN", text="TOTAL PEMBAYARAN", color="KLASIFIKASI KEPATUHAN")
+st.plotly_chart(fig, use_container_width=True)
