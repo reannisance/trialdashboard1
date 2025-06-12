@@ -12,16 +12,14 @@ st.markdown("Upload file Excel, pilih sheet, filter, dan lihat visualisasi ✨")
 # ---------- PANDUAN ----------
 with st.expander("📘 Panduan Format Excel yang dapat digunakan (Klik untuk lihat)"):
     st.markdown("""
-    Berikut adalah aturan format file Excel yang dapat digunakan:
-
     ✅ **Kolom Wajib:**
-    - `NAMA OP`, `STATUS`, `TMT`, `KLASIFIKASI` (Jika PBJT Jasa Kesenian & Hiburan)
+    - `NAMA OP`, `STATUS`, `TMT`, `KLASIFIKASI` (jika ada)
 
     ✅ **Kolom Pembayaran Bulanan:**
-    - Nama kolom bisa `2024-01-01`, `Jan-24`, dll — yang penting ada tahun pajaknya.
-    - Nilai harus berupa angka (jangan pakai teks atau simbol).
+    - Format nama kolom bisa `2024-01-01`, `Jan-24`, dll — yang penting mewakili tanggal di tahun pajak.
+    - Nilai harus berupa angka (bukan teks/simbol).
 
-    📁 Gunakan contoh file bernama **CONTOH_FORMAT_SETORAN MASA.xlsx**
+    📁 Contoh file: **CONTOH_FORMAT_SETORAN MASA.xlsx**
     """)
 
 st.markdown(
@@ -48,7 +46,7 @@ if uploaded_file is None:
 try:
     df_input = pd.read_excel(uploaded_file)
 except Exception as e:
-    st.error(f"❌ Gagal membaca file Excel. Pastikan format file sesuai. \n\nError: {e}")
+    st.error(f"❌ Gagal membaca file Excel. Pastikan format file sesuai.\n\nError: {e}")
     st.stop()
 
 # ---------- NORMALISASI KOLOM ----------
@@ -65,13 +63,18 @@ if missing:
 df_input["TMT"] = pd.to_datetime(df_input["TMT"], errors="coerce")
 df_input["TAHUN TMT"] = df_input["TMT"].dt.year.fillna(0).astype(int)
 
-# ---------- DETEKSI KOLOM PEMBAYARAN ----------
-payment_cols = [
-    col for col in df_input.columns
-    if str(tahun_pajak) in col and pd.api.types.is_numeric_dtype(df_input[col])
-]
+# ---------- DETEKSI KOLOM PEMBAYARAN (FIX) ----------
+payment_cols = []
+for col in df_input.columns:
+    try:
+        col_date = pd.to_datetime(col, errors="coerce")
+        if pd.notna(col_date) and col_date.year == tahun_pajak and pd.api.types.is_numeric_dtype(df_input[col]):
+            payment_cols.append(col)
+    except:
+        continue
+
 if not payment_cols:
-    st.error("❌ Tidak ditemukan kolom pembayaran valid yang mengandung angka dan tahun pajak.")
+    st.error("❌ Tidak ditemukan kolom pembayaran valid untuk tahun pajak yang dipilih.")
     st.stop()
 
 # ---------- HITUNG BULAN AKTIF ----------
@@ -92,16 +95,16 @@ df_input["TOTAL PEMBAYARAN"] = df_input[payment_cols].sum(axis=1)
 df_input["RATA-RATA PEMBAYARAN"] = df_input["TOTAL PEMBAYARAN"] / df_input["BULAN PEMBAYARAN"].replace(0, np.nan)
 df_input["KEPATUHAN (%)"] = (df_input["BULAN PEMBAYARAN"] / df_input["BULAN AKTIF"].replace(0, np.nan)) * 100
 
+# ---------- KLASIFIKASI RISIKO KEPATUHAN ----------
 conditions = [
     df_input["KEPATUHAN (%)"] == 100,
     (df_input["KEPATUHAN (%)"] > 50) & (df_input["KEPATUHAN (%)"] < 100),
     df_input["KEPATUHAN (%)"] <= 50
 ]
 choices = ["Patuh", "Kurang Patuh", "Tidak Patuh"]
-
 df_input["KLASIFIKASI KEPATUHAN"] = np.select(conditions, choices, default="Tidak Patuh")
 
-# ---------- OUTPUT ----------
+# ---------- OUTPUT TABEL ----------
 st.success("✅ Data berhasil diproses dan difilter!")
 
 st.dataframe(df_input.style.format({
@@ -110,17 +113,7 @@ st.dataframe(df_input.style.format({
     "KEPATUHAN (%)": "{:.2f}"
 }), use_container_width=True)
 
-
-# ---------- OUTPUT ----------
-st.success("✅ Data berhasil diproses dan difilter!")
-
-st.dataframe(df_input.style.format({
-    "TOTAL PEMBAYARAN": "{:,.2f}",
-    "RATA-RATA PEMBAYARAN": "{:,.2f}",
-    "KEPATUHAN (%)": "{:.2f}"
-}), use_container_width=True)
-
-# ---------- DOWNLOAD ----------
+# ---------- DOWNLOAD HASIL ----------
 def to_excel(df):
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
@@ -129,7 +122,7 @@ def to_excel(df):
 
 st.download_button("📥 Download Hasil Excel", to_excel(df_input), "dashboard_output.xlsx")
 
-# ---------- GRAFIK ----------
+# ---------- GRAFIK TOP 20 ----------
 st.markdown("### 📊 Top 20 Pembayar Tertinggi")
 top20 = df_input.sort_values(by="TOTAL PEMBAYARAN", ascending=False).head(20)
 fig = px.bar(top20, x="NAMA OP", y="TOTAL PEMBAYARAN", text="TOTAL PEMBAYARAN", color="KLASIFIKASI KEPATUHAN")
